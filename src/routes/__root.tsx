@@ -4,9 +4,9 @@ import { TanstackDevtools } from '@tanstack/react-devtools'
 
 import Header from '../components/Header'
 
-import StoreDevtools from '../lib/demo-store-devtools'
-
 import appCss from '../styles.css?url'
+import { useEffect } from 'react'
+import { usePuterStore } from '@/lib/puter'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -34,12 +34,19 @@ export const Route = createRootRoute({
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  const {init} = usePuterStore();
+
+  useEffect(() => {
+    init();
+  }, [init]);
+
   return (
     <html lang="en">
       <head>
         <HeadContent />
       </head>
       <body>
+        <script src="https://js.puter.com/v2/"></script>
         <Header />
         {children}
         <TanstackDevtools
@@ -51,7 +58,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
               name: 'Tanstack Router',
               render: <TanStackRouterDevtoolsPanel />,
             },
-            StoreDevtools,
           ]}
         />
         <Scripts />

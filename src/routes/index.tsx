@@ -51,11 +51,11 @@ function App() {
 
     const formData = new FormData(e.currentTarget);
 
-    const newsHeadline = (formData.get('news-headline') as string | null)?.trim();
-    const newsSnippet = (formData.get('news-snippet') as string | null)?.trim();
+    const newsHeadline = ((formData.get('news-headline') as string | null)?.trim()) || '';
+    const newsSnippet = ((formData.get('news-snippet') as string | null)?.trim()) || '';
 
-    if (!newsHeadline || !newsSnippet) {
-      setStatusText("Please enter both headline and news snippet.");
+    if (!newsHeadline && !newsSnippet) {
+      setStatusText("Please enter either the headline and article text or both.");
       return;
     }
 
@@ -65,10 +65,10 @@ function App() {
   return (
     <section className="main-section">
       <div className="page-heading">
-        <h1>That's Fake News!</h1>
+        <h1>Is It Fake!?</h1>
         {!isAuthenticated && !isProcessing ? (
           <div>
-            <h2>Welcome! Please login to begin using this tool.</h2>
+            <h2 className="mb-6">Welcome! Please login to begin using this tool.</h2>
             <Link to="/auth" className="auth-button">Login</Link>
           </div>
         ) : !isProcessing ? (

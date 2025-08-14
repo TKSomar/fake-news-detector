@@ -109,38 +109,47 @@ export const usePuterStore = create<PuterStore>((set, get) => {
   const feedback = async (newsHeadline: string, newsSnippet: string) => {
     const p = getPuter();
     if (!p) {
-        setError("Puter.js not available");
-        return;
+      setError("Puter.js not available");
+      return;
     }
 
     set({ isLoading: true, error: null });
 
     const prompt = prepareInstructions({ newsHeadline, newsSnippet });
+    console.log("Prompt sent to AI:", prompt);
 
     try {
-        // Wrap in a Promise.race to avoid hanging indefinitely
-        const response: AIResponse | undefined = await Promise.race([
-        p.ai.chat(prompt, { model: "gpt-5-2025-08-07" }) as Promise<AIResponse>,
-        new Promise<AIResponse | undefined>((_, reject) =>
-            setTimeout(() => reject(new Error("AI request timed out")), 15000)
+      // Await AI response with a timeout
+      const response = await Promise.race([
+        p.ai.chat(prompt, { model: "gpt-5-2025-08-07" }),
+        new Promise<undefined>((_, reject) =>
+          setTimeout(() => reject(new Error("AI request timed out")), 15000)
         ),
-        ]);
+      ]);
 
-        if (!response?.content?.[0]?.text) {
-        console.warn("AI returned empty response");
-        return;
-        }
+      console.log("Raw AI response:", response);
 
-        try {
-        return JSON.parse(response.content[0].text);
-        } catch {
+      // Extract text safely
+      const text = response?.content?.[0]?.text?.trim();
+
+      if (!text) {
+        console.warn("AI returned empty response, using fallback text");
+        return "No feedback available";
+      }
+
+      // Attempt to parse JSON, fallback to raw text
+      try {
+        return JSON.parse(text);
+      } catch (err) {
         console.warn("AI returned non-JSON text, returning raw string");
-        return response.content[0].text;
-        }
+        return text;
+      }
     } catch (err) {
-        console.error("AI feedback error:", err);
+      console.error("AI feedback error:", err);
+      setError(err instanceof Error ? err.message : "Unknown AI error");
+      return "AI request failed";
     } finally {
-        set({ isLoading: false });
+      set({ isLoading: false });
     }
   };
 

@@ -1,10 +1,6 @@
 import { create } from "zustand";
 import { prepareInstructions } from "@/constants";
 
-type AIResponse = {
-  role: string;
-  content: { type: string; text: string }[];
-};
 
 interface PuterStore {
   puterReady: boolean;
@@ -21,6 +17,14 @@ interface PuterStore {
       newsHeadline: string,
       newsSnippet: string
     ) => Promise<any | undefined>;
+    feedbackLong: (
+      newsHeadline: string,
+      longText: string
+    ) => Promise<any[] | undefined>;
+    img2txt: (
+      image: string | File | Blob,
+      testMode?: boolean
+    ) => Promise<string | undefined>;
   };
   init: () => void;
   clearError: () => void;
@@ -33,6 +37,17 @@ function getPuter() {
     puter = window.puter;
   }
   return puter;
+}
+
+// Utility: Split text into manageable chunks
+function chunkText(text: string, maxChars = 4000): string[] {
+  const chunks: string[] = [];
+  let start = 0;
+  while (start < text.length) {
+    chunks.push(text.slice(start, start + maxChars));
+    start += maxChars;
+  }
+  return chunks;
 }
 
 export const usePuterStore = create<PuterStore>((set, get) => {
@@ -106,6 +121,7 @@ export const usePuterStore = create<PuterStore>((set, get) => {
     }
   };
 
+  // Single short-text feedback
   const feedback = async (newsHeadline: string, newsSnippet: string) => {
     const p = getPuter();
     if (!p) {
@@ -119,7 +135,6 @@ export const usePuterStore = create<PuterStore>((set, get) => {
     console.log("Prompt sent to AI:", prompt);
 
     try {
-      // Await AI response with a timeout
       const response = await Promise.race([
         p.ai.chat(prompt, { model: "gpt-5-2025-08-07" }),
         new Promise<undefined>((_, reject) =>
@@ -128,20 +143,16 @@ export const usePuterStore = create<PuterStore>((set, get) => {
       ]);
 
       console.log("Raw AI response:", response);
-
-      // Extract text safely
-      const text = response?.content?.[0]?.text?.trim();
+      const text = response?.content?.[0]?.trim();
 
       if (!text) {
-        console.warn("AI returned empty response, using fallback text");
+        console.warn("AI returned empty response");
         return "No feedback available";
       }
 
-      // Attempt to parse JSON, fallback to raw text
       try {
         return JSON.parse(text);
-      } catch (err) {
-        console.warn("AI returned non-JSON text, returning raw string");
+      } catch {
         return text;
       }
     } catch (err) {
@@ -150,6 +161,37 @@ export const usePuterStore = create<PuterStore>((set, get) => {
       return "AI request failed";
     } finally {
       set({ isLoading: false });
+    }
+  };
+
+  // Long-text feedback (chunking)
+  const feedbackLong = async (newsHeadline: string, longText: string) => {
+    const chunks = chunkText(longText);
+    console.log(`Splitting into ${chunks.length} chunks`);
+    const results: any[] = [];
+
+    for (let i = 0; i < chunks.length; i++) {
+      console.log(`Processing chunk ${i + 1}/${chunks.length}`);
+      const result = await get().ai.feedback(newsHeadline, chunks[i]);
+      results.push(result);
+    }
+
+    return results;
+  };
+
+  // Image/PDF → Text (OCR)
+  const img2txt = async (image: string | File | Blob, testMode?: boolean) => {
+    const p = getPuter();
+    if (!p) {
+      setError("Puter.js not available");
+      return;
+    }
+    try {
+      const result = await p.ai.img2txt(image, testMode);
+      return result?.text || result; // Depending on API output
+    } catch (err) {
+      setError("Image to text conversion failed");
+      return;
     }
   };
 
@@ -180,7 +222,7 @@ export const usePuterStore = create<PuterStore>((set, get) => {
       signIn,
       signOut,
     },
-    ai: { feedback },
+    ai: { feedback, feedbackLong, img2txt },
     init,
     clearError: () => set({ error: null }),
   };

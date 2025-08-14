@@ -65,7 +65,7 @@ function App() {
   return (
     <section className="main-section">
       <div className="page-heading">
-        <h1>Is It Fake!?</h1>
+        <h1>Is It Fake?!</h1>
         {!isAuthenticated && !isProcessing ? (
           <div>
             <h2 className="mb-6">Welcome! Please login to begin using this tool.</h2>
